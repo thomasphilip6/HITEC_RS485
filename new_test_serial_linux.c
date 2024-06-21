@@ -11,7 +11,7 @@
 #include <termios.h> // Contains POSIX terminal control definitions
 #include <unistd.h> // write(), read(), close()
 
-#define SERVO_COUNT 2
+#define SERVO_COUNT 1
 
 bool send_flag=0;
 bool receive_flag=0;
@@ -19,9 +19,9 @@ uint8_t response_hitec[7];
 uint8_t request_hitec[5];
 uint8_t write_hitec[7];
 uint8_t servo_id[SERVO_COUNT];
-uint16_t current_positions[SERVO_COUNT];
-uint16_t previous_positions[SERVO_COUNT];
-uint16_t target_positions[SERVO_COUNT];
+int16_t current_positions[SERVO_COUNT];
+int16_t previous_positions[SERVO_COUNT];
+int16_t target_positions[SERVO_COUNT];
 unsigned long delay_after_request=100000;
 
 const float max_delay=20000;
@@ -40,12 +40,12 @@ void error_exit(const char* message) {
 struct termios tty;
 
 void init_serial(){
-    serial_port = open("/dev/ttyACM0", O_RDWR);
+    serial_port = open("/dev/ttyUSB0", O_RDWR);
     if(tcgetattr(serial_port, &tty)!=0) {
         printf("Error %i from tcgetattr: %s\n", errno, strerror(errno));
     } 
-    	cfsetispeed(&tty, B9600);
-    	cfsetospeed(&tty, B9600);
+    	cfsetispeed(&tty, B115200);
+    	cfsetospeed(&tty, B115200);
 
     	tty.c_cflag &= ~PARENB; // Clear parity bit, disabling parity (most common)
     	tty.c_cflag &= ~CSTOPB; // Clear stop field, only one stop bit used in communication (most common)
@@ -222,7 +222,7 @@ bool get_position(uint8_t id){
 				}
 			}
 			uint16_t raw_position=(response_hitec[5] << 8) | response_hitec[4];//shifts the high byte from 1 byte and bit-wise OR
-			current_positions[id]=(uint16_t)(raw_position-8192)/45.51;
+			current_positions[id]=(int16_t)(raw_position-8192)/45.51;
   			//MD Series (360°): -90°=4096, 0°=8192, 90°=12288.
 			printf("Servo Position is %i", current_positions[id]);
 			printf("\n");
@@ -240,7 +240,7 @@ bool get_position(uint8_t id){
 	return position_acquired;
 }
 
-bool servo_move(uint8_t servo, uint16_t value){
+bool servo_move(uint8_t servo, int16_t value){
 	uint16_t raw_value=(uint16_t) value*45.51+8192;
 	uint8_t data_low=raw_value;
 	uint8_t data_high=raw_value >> 8;
@@ -248,8 +248,10 @@ bool servo_move(uint8_t servo, uint16_t value){
 	write_hitec[1]=servo_id[servo];//id of servo
 	write_hitec[2]=0x1E; //address REG_POSITION_NEW
 	write_hitec[3]=0x02;//length
-	write_hitec[4]=data_low;
-	write_hitec[5]=data_high;
+	//write_hitec[4]=data_low;
+	//write_hitec[5]=data_high;
+	write_hitec[4]=0x00;
+	write_hitec[5]=0x00;
 	write_hitec[6]=get_wm_checksum();
 	for (int i = 0; i < 7; i++) {
     	printf("0x%02X ", write_hitec[i]);
@@ -266,18 +268,18 @@ bool servo_move(uint8_t servo, uint16_t value){
 	return true;	
 }
 
-bool servo_move_speed(uint8_t servo, uint16_t target, uint16_t speed){
+bool servo_move_speed(uint8_t servo, int16_t target, uint16_t speed){
 	uint16_t delay=(uint16_t)a_coeff*speed;
 	printf("delay is : %i",delay);
 	printf("\n");
 	if (target>current_positions[servo]){
-		for(uint8_t i=current_positions[servo];i<=target;i++){
+		for(int8_t i=current_positions[servo];i<=target;i++){
 			servo_move(servo,i);
 			usleep(delay);
 		}
 	}
 	else if (target<current_positions[servo]){
-		for(uint8_t i=current_positions[servo];i>=target;i--){
+		for(int8_t i=current_positions[servo];i>=target;i--){
 			servo_move(servo,i);
 			usleep(delay);
 		}	
@@ -331,11 +333,14 @@ int main(){
 	}
 	activate_no_block_com();
 	get_servo_position(0);
+	/*
 	get_servo_position(1);
 	//usleep(1000000);
 	//servo_move_speed(1,78,20);
+	*/
 	servo_move(0,90);
-	usleep(100000);
+	usleep(2000000);
+	get_servo_position(0);
 	tcflush(serial_port, TCIOFLUSH);
 	close(serial_port);
     return 1;
