@@ -229,6 +229,32 @@ bool read_data(uint8_t servo_id, uint8_t register_address) {
 	return 1;
 }
 
+bool write_data(uint8_t servo_id, uint8_t register_address, uint8_t data_high, uint8_t data_low){
+	usleep(delay_after_request);
+	tcflush(serial_port, TCIOFLUSH);
+	usleep(delay_after_request);
+	write_hitec[0]=0x96;
+	write_hitec[1]=servo_id;
+	write_hitec[2]=register_address;
+	write_hitec[3]=0x02;//length of data always 2
+	write_hitec[4]=data_low;
+	write_hitec[5]=data_high;
+	write_hitec[6]=get_wm_checksum();
+	write_hitec[6]=get_wm_checksum();
+	for (int i = 0; i < 7; i++) {
+    	printf("0x%02X ", write_hitec[i]);
+  	}
+  	printf("\n");
+	ssize_t bytes_written=write(serial_port, write_hitec, sizeof(write_hitec));
+  	if (bytes_written==7){
+		printf("7 bytes written\n");
+ 	} 
+	else {
+		printf("error when writing\n");
+	}	
+	return true;	
+}
+
 bool get_position(uint8_t id){
 	bool position_acquired=true;
 	tcflush(serial_port, TCIOFLUSH);
@@ -365,18 +391,22 @@ int main(){
 			exit(1);//alert OBC instead of exit
 		}
 	}
-	read_data(0x00,0xB0);
+	read_data(0x00,0x32);
 	activate_no_block_com();
 	
-	get_servo_position(0);
+	//get_servo_position(0);
+	//write_data(0x00,0x70,0xFF,0xFF);
 	/*
 	get_servo_position(1);
 	//usleep(1000000);
 	//servo_move_speed(1,78,20);
 	*/
-	servo_move(0,-60);
+	//servo_move(0,-60);
+	//servo_move_speed(0,0,50);
+	//servo_id[0]=0x01;
 	usleep(3000000);
-	get_servo_position(0);
+	//read_data(0x00,0x32);
+	//get_servo_position(0);
 	tcflush(serial_port, TCIOFLUSH);
 	close(serial_port);
     return 1;
