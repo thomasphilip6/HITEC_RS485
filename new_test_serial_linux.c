@@ -13,6 +13,11 @@
 
 #define SERVO_COUNT 1
 
+//in degrees
+int16_t reg_position_mid=0;
+int16_t reg_position_min=-65;
+int16_t reg_position_max=65;
+
 bool send_flag=0;
 bool receive_flag=0;
 uint8_t response_hitec[7];
@@ -197,6 +202,33 @@ bool get_ids(){
 	return checksum_match;
 }
 
+bool read_data(uint8_t servo_id, uint8_t register_address) {
+	usleep(delay_after_request);
+	tcflush(serial_port, TCIOFLUSH);
+	usleep(delay_after_request);
+	request_hitec[0]=0x96; //write header
+	request_hitec[1]=servo_id;
+	request_hitec[2]=register_address;
+	request_hitec[3]=0x00; //always 0 when requesting
+	request_hitec[4]=(request_hitec[1]+request_hitec[2]+request_hitec[3])& 0xFF;
+	for (int i = 0; i < 5; i++) {
+      printf("0x%02X ", request_hitec[i]);
+  	}
+  	printf("\n");
+  	ssize_t bytes_written=write(serial_port, request_hitec, sizeof(request_hitec));
+	if (bytes_written==5){
+		printf("5 bytes written\n");
+	}  
+  	else {
+		printf("problem when writting\n");
+		exit(1);
+  	}
+	usleep(delay_after_request);
+	read_bus();
+	bool check=get_read_bus_checksum();
+	return 1;
+}
+
 bool get_position(uint8_t id){
 	bool position_acquired=true;
 	tcflush(serial_port, TCIOFLUSH);
@@ -222,7 +254,7 @@ bool get_position(uint8_t id){
 				}
 			}
 			uint16_t raw_position=(response_hitec[5] << 8) | response_hitec[4];//shifts the high byte from 1 byte and bit-wise OR
-			current_positions[id]=(int16_t)(raw_position-8192)/45.51;
+			current_positions[id]=(int16_t)(raw_position-7816)/45.51;
   			//MD Series (360°): -90°=4096, 0°=8192, 90°=12288.
 			printf("Servo Position is %i", current_positions[id]);
 			printf("\n");
@@ -241,17 +273,19 @@ bool get_position(uint8_t id){
 }
 
 bool servo_move(uint8_t servo, int16_t value){
-	uint16_t raw_value=(uint16_t) value*45.51+8192;
+	float slope=(float)(5600-400)/(reg_position_max-reg_position_min);
+	float b_coeff=(float)5600-slope*reg_position_max;
+	uint16_t raw_value=(uint16_t)value*slope+b_coeff;
 	uint8_t data_low=raw_value;
 	uint8_t data_high=raw_value >> 8;
 	write_hitec[0]=0x96;//write header
 	write_hitec[1]=servo_id[servo];//id of servo
 	write_hitec[2]=0x1E; //address REG_POSITION_NEW
 	write_hitec[3]=0x02;//length
-	//write_hitec[4]=data_low;
-	//write_hitec[5]=data_high;
-	write_hitec[4]=0x00;
-	write_hitec[5]=0x00;
+	write_hitec[4]=data_low;
+	write_hitec[5]=data_high;
+	//write_hitec[4]=0xE0;
+	//write_hitec[5]=0x15;
 	write_hitec[6]=get_wm_checksum();
 	for (int i = 0; i < 7; i++) {
     	printf("0x%02X ", write_hitec[i]);
@@ -331,15 +365,17 @@ int main(){
 			exit(1);//alert OBC instead of exit
 		}
 	}
+	read_data(0x00,0xB0);
 	activate_no_block_com();
+	
 	get_servo_position(0);
 	/*
 	get_servo_position(1);
 	//usleep(1000000);
 	//servo_move_speed(1,78,20);
 	*/
-	servo_move(0,90);
-	usleep(2000000);
+	servo_move(0,-60);
+	usleep(3000000);
 	get_servo_position(0);
 	tcflush(serial_port, TCIOFLUSH);
 	close(serial_port);
