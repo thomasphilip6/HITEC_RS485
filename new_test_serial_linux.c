@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 // Linux headers
 #include <fcntl.h> // Contains file controls like O_RDWR
@@ -41,12 +42,11 @@ void init_serial(){
     	tty.c_iflag &= ~(IXON | IXOFF | IXANY); // Turn off s/w flow ctrl
     	tty.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL); // Disable any special handling of received bytes
 
-
     	tty.c_oflag &= ~OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
     	tty.c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
 
-    	tty.c_cc[VTIME] = 10;    // Wait for up to 1s (10 deciseconds), returning as soon as any data is received.
-    	tty.c_cc[VMIN] = 0;
+    	tty.c_cc[VTIME] = 0;    // Wait for up to 1s (10 deciseconds), returning as soon as any data is received.
+    	tty.c_cc[VMIN] = 2;
 
     	if (tcsetattr(serial_port, TCSANOW, &tty) != 0) {
     	    printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
@@ -56,9 +56,13 @@ void init_serial(){
 
 int main(){
     init_serial();
-    char read_buf[256];
+    uint8_t read_buf[1];
     int num_bytes = read(serial_port, &read_buf, sizeof(read_buf));
-    printf("Read %i bytes. Received message: %s", num_bytes, read_buf);
-    close(serial_port);
+    printf("Read %i bytes.", num_bytes);
+	for (int i = 0; i < num_bytes; ++i) {
+    printf(" 0x%02X", (unsigned char)read_buf[i]);
+    }
+    printf("\n");
+	close(serial_port);
     return 1;
 }
