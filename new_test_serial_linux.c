@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 // Linux headers
 #include <fcntl.h> // Contains file controls like O_RDWR
@@ -10,11 +11,25 @@
 #include <termios.h> // Contains POSIX terminal control definitions
 #include <unistd.h> // write(), read(), close()
 
+#define SERVO_COUNT 4
+
+bool send_flag=0;
+bool receive_flag=0;
+uint8_t response_hitec[7];
+uint8_t request_hitec[5];
+uint8_t write_hitec[7];
+uint8_t servo_id[SERVO_COUNT];
+float current_positions[SERVO_COUNT];
+float previous_positions[SERVO_COUNT];
+float target_positions[SERVO_COUNT];
+
+int serial_port;
+
 void error_exit(const char* message) {
     perror(message);
     exit(EXIT_FAILURE);
 }
-int serial_port;
+
 void init_serial(){
     serial_port = open("/dev/ttyACM0", O_RDWR);
     struct termios tty;
@@ -45,8 +60,8 @@ void init_serial(){
     	tty.c_oflag &= ~OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
     	tty.c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
 
-    	tty.c_cc[VTIME] = 0;    // Wait for up to 1s (10 deciseconds), returning as soon as any data is received.
-    	tty.c_cc[VMIN] = 2;
+    	tty.c_cc[VTIME] = 0;    // return as soon as 1 Byte is read
+    	tty.c_cc[VMIN] = 8;
 
     	if (tcsetattr(serial_port, TCSANOW, &tty) != 0) {
     	    printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
@@ -54,15 +69,88 @@ void init_serial(){
 
 }
 
-int main(){
-    init_serial();
-    uint8_t read_buf[1];
-    int num_bytes = read(serial_port, &read_buf, sizeof(read_buf));
-    printf("Read %i bytes.", num_bytes);
+void read_bus(){
+	int num_bytes = read(serial_port, &response_hitec, sizeof(response_hitec));
+	printf("Read %i bytes.", num_bytes);
 	for (int i = 0; i < num_bytes; ++i) {
-    printf(" 0x%02X", (unsigned char)read_buf[i]);
+    printf(" 0x%02X", (unsigned char)response_hitec[i]);
     }
     printf("\n");
+}
+
+bool get_rm_checksum() {
+	uint8_t checksum=0;
+	bool flag=0;
+	checksum = response_hitec[1]+response_hitec[2]+response_hitec[3];
+	checksum = checksum & 0xFF;
+	printf("checksum computed is : ");
+	printf(" 0x%02X", (unsigned char)checksum);
+	printf("\n");
+	if (checksum==response_hitec[6]){
+		flag=1;
+	}
+	else{}
+	return flag;
+  // read mode checksum = (ID + Address + Length) & 0xFF
+}
+
+uint8_t get_wm_checksum() {
+  uint8_t checksum=0;
+  checksum = write_hitec[1]+write_hitec[2]+write_hitec[3]+write_hitec[4]+write_hitec[5];
+  return checksum & 0xFF;
+  // write mode checksum = Check Sum = (ID + Address + Length +Data Low + Data High) & 0xFF
+}
+
+void call_servos(uint id_servo){
+//request response from all servos
+  request_hitec[0]=0x96;//write header
+  request_hitec[1]=id_servo;//broadcast id
+  request_hitec[2]=0x0C;//REG_POSITION address
+  request_hitec[3]=0x00;//Length
+  request_hitec[4]=request_hitec[1]+request_hitec[2]+request_hitec[3];
+  request_hitec[4]=request_hitec[4] & 0xFF;
+  for (int i = 0; i < 5; i++) {
+      printf("0x%02X ", request_hitec[i]);
+  }
+  printf("\n");
+  ssize_t bytes_written=write(serial_port, request_hitec, sizeof(request_hitec));
+  if (bytes_written==5){
+	printf("5 bytes written\n");
+	send_flag=1;
+  }  
+}
+
+void get_ids(){
+	call_servos(0x00);
+	if (send_flag==1){
+		send_flag=0;
+		for(int i=0; i<SERVO_COUNT;i++){
+			read_bus();
+			servo_id[i]=response_hitec[1];
+			printf("Servo found, id : ");
+			printf("0x%02X ", servo_id[i]);
+			printf("\n");
+		}
+	}
+	else {
+		printf("Problem when requesting\n");
+	}
+}
+
+void get_position(uint8_t id){
+	call_servos(servo_id[id]);
+	if (send_flag==1){
+		uint16_t raw_position=(response_hitec[5] << 8) | response_hitec[4];//shifts the high byte from 1 byte and bit-wise OR
+		float current_positions[id]=(raw_position-8192)/74.48;
+  		//MD Series (360°): -90°=4096, 0°=8192, 90°=12288.
+	}
+}
+
+int main(){
+    init_serial();
+	read_bus();
+	bool checksum=get_rm_checksum();
+	//call_servos();
 	close(serial_port);
     return 1;
 }
