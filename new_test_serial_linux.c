@@ -61,7 +61,7 @@ void init_serial(){
     	tty.c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
 
     	tty.c_cc[VTIME] = 0;    // return as soon as 1 Byte is read
-    	tty.c_cc[VMIN] = 8;
+    	tty.c_cc[VMIN] = 7;
 
     	if (tcsetattr(serial_port, TCSANOW, &tty) != 0) {
     	    printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
@@ -69,13 +69,14 @@ void init_serial(){
 
 }
 
-void read_bus(){
+bool read_bus(){
 	int num_bytes = read(serial_port, &response_hitec, sizeof(response_hitec));
 	printf("Read %i bytes.", num_bytes);
 	for (int i = 0; i < num_bytes; ++i) {
     printf(" 0x%02X", (unsigned char)response_hitec[i]);
     }
     printf("\n");
+	return 1;
 }
 
 bool get_rm_checksum() {
@@ -101,7 +102,7 @@ uint8_t get_wm_checksum() {
   // write mode checksum = Check Sum = (ID + Address + Length +Data Low + Data High) & 0xFF
 }
 
-void call_servos(uint id_servo){
+void call_servos(uint8_t id_servo){
 //request response from all servos
   request_hitec[0]=0x96;//write header
   request_hitec[1]=id_servo;//broadcast id
@@ -141,16 +142,22 @@ void get_position(uint8_t id){
 	call_servos(servo_id[id]);
 	if (send_flag==1){
 		uint16_t raw_position=(response_hitec[5] << 8) | response_hitec[4];//shifts the high byte from 1 byte and bit-wise OR
-		float current_positions[id]=(raw_position-8192)/74.48;
+		current_positions[id]=(raw_position-8192)/74.48;
   		//MD Series (360°): -90°=4096, 0°=8192, 90°=12288.
+	}
+	else {
+		printf("Problem when requesting\n");
 	}
 }
 
 int main(){
     init_serial();
+	usleep(2000000);  // 2 seconds delay to allow Arduino to reset
+	call_servos(0x00);
 	read_bus();
 	bool checksum=get_rm_checksum();
-	//call_servos();
+	read_bus();
+	checksum=get_rm_checksum();
 	close(serial_port);
     return 1;
 }
