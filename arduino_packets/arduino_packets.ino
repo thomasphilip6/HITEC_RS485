@@ -63,5 +63,5 @@ void loop(){
         Serial.write(checksum1);
 	}
 	else {}
-}
+	}
 }
