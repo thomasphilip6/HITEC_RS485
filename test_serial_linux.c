@@ -74,8 +74,8 @@ char* read_serial() {
 
 int main() {
     serial_init();
-    //send_data("hello world\n");
-    //usleep(100000);  // 100ms delay
+    send_data("hello world\n");
+    usleep(100000);  // 100ms delay
     while (1) {
         printf("looping\n");
         char* data = read_serial();

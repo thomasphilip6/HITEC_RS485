@@ -36,7 +36,8 @@ int main() {
     options.c_cc[VTIME] = 0;     // Timeout in deciseconds for read (0 for non-blocking)
 
     tcsetattr(serial_fd, TCSANOW, &options);  // Apply settings
-
+    //unsigned char message[] = { 'H', 'e', 'l', 'l', 'o', '\n' };
+    //write(serial_fd, message, strlen(message));
     while (1) {
         bytesRead = read(serial_fd, buffer, sizeof(buffer)-1);
         if (bytesRead == -1) {

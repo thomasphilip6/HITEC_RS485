@@ -11,7 +11,7 @@
 #include <termios.h> // Contains POSIX terminal control definitions
 #include <unistd.h> // write(), read(), close()
 
-#define SERVO_COUNT 4
+#define SERVO_COUNT 2
 
 bool send_flag=0;
 bool receive_flag=0;
@@ -60,7 +60,7 @@ void init_serial(){
     	tty.c_oflag &= ~OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
     	tty.c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
 
-    	tty.c_cc[VTIME] = 0;    // return as soon as 1 Byte is read
+    	tty.c_cc[VTIME] = 0;    // return as soon as 7 Byte is read
     	tty.c_cc[VMIN] = 7;
 
     	if (tcsetattr(serial_port, TCSANOW, &tty) != 0) {
@@ -108,8 +108,7 @@ void call_servos(uint8_t id_servo){
   request_hitec[1]=id_servo;//broadcast id
   request_hitec[2]=0x0C;//REG_POSITION address
   request_hitec[3]=0x00;//Length
-  request_hitec[4]=request_hitec[1]+request_hitec[2]+request_hitec[3];
-  request_hitec[4]=request_hitec[4] & 0xFF;
+  request_hitec[4]=(request_hitec[1]+request_hitec[2]+request_hitec[3])& 0xFF;
   for (int i = 0; i < 5; i++) {
       printf("0x%02X ", request_hitec[i]);
   }
@@ -141,9 +140,12 @@ void get_ids(){
 void get_position(uint8_t id){
 	call_servos(servo_id[id]);
 	if (send_flag==1){
+		read_bus();
 		uint16_t raw_position=(response_hitec[5] << 8) | response_hitec[4];//shifts the high byte from 1 byte and bit-wise OR
-		current_positions[id]=(raw_position-8192)/74.48;
+		current_positions[id]=(raw_position-8192)/45.51;
   		//MD Series (360°): -90°=4096, 0°=8192, 90°=12288.
+		printf("Servo Position is %f", current_positions[id]);
+		printf("\n");
 	}
 	else {
 		printf("Problem when requesting\n");
@@ -153,11 +155,16 @@ void get_position(uint8_t id){
 int main(){
     init_serial();
 	usleep(2000000);  // 2 seconds delay to allow Arduino to reset
+	/*
 	call_servos(0x00);
 	read_bus();
 	bool checksum=get_rm_checksum();
 	read_bus();
 	checksum=get_rm_checksum();
+	*/
+	get_ids();
+	get_position(0);
+	get_position(1);
 	close(serial_port);
     return 1;
 }
