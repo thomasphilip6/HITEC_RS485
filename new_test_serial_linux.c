@@ -19,9 +19,13 @@ uint8_t response_hitec[7];
 uint8_t request_hitec[5];
 uint8_t write_hitec[7];
 uint8_t servo_id[SERVO_COUNT];
-float current_positions[SERVO_COUNT];
-float previous_positions[SERVO_COUNT];
+uint16_t current_positions[SERVO_COUNT];
+uint16_t previous_positions[SERVO_COUNT];
 uint16_t target_positions[SERVO_COUNT];
+
+const float max_delay=20000;
+const float min_delay=0;
+const float a_coeff=(max_delay-min_delay)/(100-0);
 
 int serial_port;
 
@@ -198,6 +202,7 @@ void get_position(uint8_t id){
 			call_servos(servo_id[id]);
 			if (send_flag==1){
 				read_bus();
+				checksum_match=get_read_bus_checksum();
 			}
 			checksum_fail_count+=1;
 			if (checksum_fail_count>10){
@@ -206,9 +211,9 @@ void get_position(uint8_t id){
 			}
 		}
 		uint16_t raw_position=(response_hitec[5] << 8) | response_hitec[4];//shifts the high byte from 1 byte and bit-wise OR
-		current_positions[id]=(raw_position-8192)/45.51;
+		current_positions[id]=(uint16_t)(raw_position-8192)/45.51;
   		//MD Series (360°): -90°=4096, 0°=8192, 90°=12288.
-		printf("Servo Position is %f", current_positions[id]);
+		printf("Servo Position is %i", current_positions[id]);
 		printf("\n");
 	}
 	else { 
@@ -243,6 +248,26 @@ bool servo_move(uint8_t servo, uint16_t value){
 	return true;	
 }
 
+bool servo_move_speed(uint8_t servo, uint16_t target, uint16_t speed){
+	uint16_t delay=(uint16_t)a_coeff*speed;
+	printf("delay is : %i",delay);
+	printf("\n");
+	if (target>current_positions[servo]){
+		for(uint8_t i=current_positions[servo];i<=target;i++){
+			servo_move(servo,i);
+			usleep(delay);
+		}
+	}
+	else if (target<current_positions[servo]){
+		for(uint8_t i=current_positions[servo];i>=target;i--){
+			servo_move(servo,i);
+			usleep(delay);
+		}	
+	}
+	else{}
+	return true;
+}
+
 int main(){
     init_serial();
 	usleep(2000000);  // 2 seconds delay to allow Arduino to reset
@@ -263,6 +288,7 @@ int main(){
 	get_position(0);
 	get_position(1);
 	//usleep(1000000);
+	//servo_move_speed(1,78,20);
 	servo_move(0,90);
 	usleep(100000);
 	tcflush(serial_port, TCIOFLUSH);
