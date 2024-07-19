@@ -79,10 +79,10 @@ bool read_bus(){
 	return 1;
 }
 
-bool get_rm_checksum() {
+bool get_read_bus_checksum() {
 	uint8_t checksum=0;
 	bool flag=0;
-	checksum = response_hitec[1]+response_hitec[2]+response_hitec[3];
+	checksum = response_hitec[1]+response_hitec[2]+response_hitec[3]+response_hitec[4]+response_hitec[5];
 	checksum = checksum & 0xFF;
 	printf("checksum computed is : ");
 	printf(" 0x%02X", (unsigned char)checksum);
@@ -92,7 +92,7 @@ bool get_rm_checksum() {
 	}
 	else{}
 	return flag;
-  // read mode checksum = (ID + Address + Length) & 0xFF
+  // write mode checksum = (ID + Address + Length + Data Low + Data High) & 0xFF
 }
 
 uint8_t get_wm_checksum() {
@@ -122,8 +122,7 @@ bool writing_failure(uint8_t bytes_number){
 			bytes_written=write(serial_port, write_hitec, sizeof(write_hitec));	
 		}
 		else {
-			printf("sending message damaged\n");
-			//memory leak
+			printf("sending message damaged\n");//memory leak
 		}
 		if (bytes_written==bytes_number){
 			printf("serial restarted and bytes writen\n");
@@ -163,12 +162,17 @@ void call_servos(uint8_t id_servo){
   }
 }
 
-void get_ids(){
+bool get_ids(){
+	bool checksum_match=true;
 	call_servos(0x00);
 	if (send_flag==1){
 		send_flag=0;
 		for(int i=0; i<SERVO_COUNT;i++){
 			read_bus();
+			bool check=get_read_bus_checksum();
+			if (!check){
+				checksum_match=false;
+			}
 			servo_id[i]=response_hitec[1];
 			printf("Servo found, id : ");
 			printf("0x%02X ", servo_id[i]);
@@ -176,15 +180,31 @@ void get_ids(){
 		}
 	}
 	else {
-		printf("Problem when requesting\n");
-		//program should stop and notify OBC
+		printf("Problem when requesting\n");//program should stop and notify OBC
 	}
+	return checksum_match;
 }
 
 void get_position(uint8_t id){
 	call_servos(servo_id[id]);
 	if (send_flag==1){
 		read_bus();
+		bool checksum_match=get_read_bus_checksum();
+		uint8_t checksum_fail_count=0;
+		while (!checksum_match){
+			printf("----------------\n");
+			tcflush(serial_port, TCIOFLUSH);
+			usleep(100000);
+			call_servos(servo_id[id]);
+			if (send_flag==1){
+				read_bus();
+			}
+			checksum_fail_count+=1;
+			if (checksum_fail_count>10){
+				printf("Checksum won't match\n");
+				exit(1);//alert OBC instead of exit
+			}
+		}
 		uint16_t raw_position=(response_hitec[5] << 8) | response_hitec[4];//shifts the high byte from 1 byte and bit-wise OR
 		current_positions[id]=(raw_position-8192)/45.51;
   		//MD Series (360°): -90°=4096, 0°=8192, 90°=12288.
@@ -226,19 +246,25 @@ bool servo_move(uint8_t servo, uint16_t value){
 int main(){
     init_serial();
 	usleep(2000000);  // 2 seconds delay to allow Arduino to reset
-	/*
-	call_servos(0x00);
-	read_bus();
-	bool checksum=get_rm_checksum();
-	read_bus();
-	checksum=get_rm_checksum();
-	*/
-	get_ids();
+	tcflush(serial_port, TCIOFLUSH);
+	bool checksum_match = get_ids();
+	uint8_t checksum_fail_count=0;
+	while (!checksum_match){
+		printf("----------------\n");
+		tcflush(serial_port, TCIOFLUSH);
+		usleep(100000);
+		checksum_match=get_ids();
+		checksum_fail_count+=1;
+		if (checksum_fail_count>10){
+			printf("Checksum won't match\n");
+			exit(1);//alert OBC instead of exit
+		}
+	}
 	get_position(0);
 	get_position(1);
-	usleep(1000000);
+	//usleep(1000000);
 	servo_move(0,90);
-	usleep(1000000);
+	usleep(100000);
 	tcflush(serial_port, TCIOFLUSH);
 	close(serial_port);
     return 1;
