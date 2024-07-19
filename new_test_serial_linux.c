@@ -102,6 +102,46 @@ uint8_t get_wm_checksum() {
   // write mode checksum = Check Sum = (ID + Address + Length +Data Low + Data High) & 0xFF
 }
 
+bool restart_serial(){
+	tcflush(serial_port, TCIOFLUSH);
+	close(serial_port);
+    init_serial();
+	usleep(2000000);
+	return true;	
+}
+
+bool writing_failure(uint8_t bytes_number){
+	bool status =restart_serial();
+	bool decision;
+	if (status){
+		ssize_t bytes_written;
+		if (bytes_number==5){
+			bytes_written=write(serial_port, request_hitec, sizeof(request_hitec));	
+		}
+		else if (bytes_number==7){
+			bytes_written=write(serial_port, write_hitec, sizeof(write_hitec));	
+		}
+		else {
+			printf("sending message damaged\n");
+			//memory leak
+		}
+		if (bytes_written==bytes_number){
+			printf("serial restarted and bytes writen\n");
+			send_flag=1;
+			decision=true;
+		}
+		else {
+			printf("serial restarted and still could not write\n");
+			decision=false;
+		}
+	}
+	else {
+		decision=false;
+		printf("Could not restart serial\n");
+	}
+	return decision;
+}
+
 void call_servos(uint8_t id_servo){
 //request response from all servos
   request_hitec[0]=0x96;//write header
@@ -118,6 +158,9 @@ void call_servos(uint8_t id_servo){
 	printf("5 bytes written\n");
 	send_flag=1;
   }  
+  else {
+	writing_failure(5);
+  }
 }
 
 void get_ids(){
@@ -134,6 +177,7 @@ void get_ids(){
 	}
 	else {
 		printf("Problem when requesting\n");
+		//program should stop and notify OBC
 	}
 }
 
@@ -149,6 +193,7 @@ void get_position(uint8_t id){
 	}
 	else { 
 		printf("Problem when requesting\n");
+		//program should stop and notify OBC
 	}
 }
 
@@ -167,20 +212,15 @@ bool servo_move(uint8_t servo, uint16_t value){
     	printf("0x%02X ", write_hitec[i]);
   	}
   	printf("\n");
-	
 	ssize_t bytes_written=write(serial_port, write_hitec, sizeof(write_hitec));
   	if (bytes_written==7){
 		printf("7 bytes written\n");
 		send_flag=1;
  	} 
-	
+	else {
+		writing_failure(7);
+	}	
 	return true;	
-}
-
-void restart_serial(){
-	close(serial_port);
-    init_serial();
-	usleep(2000000);	
 }
 
 int main(){
