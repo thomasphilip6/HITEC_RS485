@@ -22,10 +22,13 @@ uint8_t servo_id[SERVO_COUNT];
 uint16_t current_positions[SERVO_COUNT];
 uint16_t previous_positions[SERVO_COUNT];
 uint16_t target_positions[SERVO_COUNT];
+unsigned long delay_after_request=100000;
 
 const float max_delay=20000;
 const float min_delay=0;
 const float a_coeff=(max_delay-min_delay)/(100-0);
+
+void call_servos(uint8_t id_servo);
 
 int serial_port;
 
@@ -34,9 +37,10 @@ void error_exit(const char* message) {
     exit(EXIT_FAILURE);
 }
 
+struct termios tty;
+
 void init_serial(){
     serial_port = open("/dev/ttyACM0", O_RDWR);
-    struct termios tty;
     if(tcgetattr(serial_port, &tty)!=0) {
         printf("Error %i from tcgetattr: %s\n", errno, strerror(errno));
     } 
@@ -64,7 +68,7 @@ void init_serial(){
     	tty.c_oflag &= ~OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
     	tty.c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
 
-    	tty.c_cc[VTIME] = 0;    // return as soon as 7 Byte is read
+    	tty.c_cc[VTIME] = 10;    // return as soon as 7 Byte is read or 100ms has passed
     	tty.c_cc[VMIN] = 7;
 
     	if (tcsetattr(serial_port, TCSANOW, &tty) != 0) {
@@ -74,13 +78,17 @@ void init_serial(){
 }
 
 bool read_bus(){
-	int num_bytes = read(serial_port, &response_hitec, sizeof(response_hitec));
+	bool no_response=false;
+	uint8_t num_bytes = read(serial_port, &response_hitec, sizeof(response_hitec));
 	printf("Read %i bytes.", num_bytes);
 	for (int i = 0; i < num_bytes; ++i) {
     printf(" 0x%02X", (unsigned char)response_hitec[i]);
     }
     printf("\n");
-	return 1;
+	if (num_bytes==0){
+		no_response=true;
+		}
+	return no_response;
 }
 
 bool get_read_bus_checksum() {
@@ -189,37 +197,47 @@ bool get_ids(){
 	return checksum_match;
 }
 
-void get_position(uint8_t id){
+bool get_position(uint8_t id){
+	bool position_acquired=true;
+	tcflush(serial_port, TCIOFLUSH);
 	call_servos(servo_id[id]);
 	if (send_flag==1){
-		read_bus();
-		bool checksum_match=get_read_bus_checksum();
-		uint8_t checksum_fail_count=0;
-		while (!checksum_match){
-			printf("----------------\n");
-			tcflush(serial_port, TCIOFLUSH);
-			usleep(100000);
-			call_servos(servo_id[id]);
-			if (send_flag==1){
-				read_bus();
-				checksum_match=get_read_bus_checksum();
+		usleep(delay_after_request);
+		if(!read_bus()){
+			bool checksum_match=get_read_bus_checksum();
+			uint8_t checksum_fail_count=0;
+			while (!checksum_match){
+				printf("----------------\n");
+				tcflush(serial_port, TCIOFLUSH);
+				usleep(100000);
+				call_servos(servo_id[id]);
+				if (send_flag==1){
+					read_bus();
+					checksum_match=get_read_bus_checksum();
+				}
+				checksum_fail_count+=1;
+				if (checksum_fail_count>10){
+					printf("Checksum won't match\n");
+					exit(1);//alert OBC instead of exit
+				}
 			}
-			checksum_fail_count+=1;
-			if (checksum_fail_count>10){
-				printf("Checksum won't match\n");
-				exit(1);//alert OBC instead of exit
-			}
+			uint16_t raw_position=(response_hitec[5] << 8) | response_hitec[4];//shifts the high byte from 1 byte and bit-wise OR
+			current_positions[id]=(uint16_t)(raw_position-8192)/45.51;
+  			//MD Series (360°): -90°=4096, 0°=8192, 90°=12288.
+			printf("Servo Position is %i", current_positions[id]);
+			printf("\n");
 		}
-		uint16_t raw_position=(response_hitec[5] << 8) | response_hitec[4];//shifts the high byte from 1 byte and bit-wise OR
-		current_positions[id]=(uint16_t)(raw_position-8192)/45.51;
-  		//MD Series (360°): -90°=4096, 0°=8192, 90°=12288.
-		printf("Servo Position is %i", current_positions[id]);
-		printf("\n");
+		else{
+			printf("position not acquired\n");
+			position_acquired=false;
+		}
 	}
 	else { 
 		printf("Problem when requesting\n");
 		//program should stop and notify OBC
 	}
+	tcflush(serial_port, TCIOFLUSH);
+	return position_acquired;
 }
 
 bool servo_move(uint8_t servo, uint16_t value){
@@ -268,6 +286,32 @@ bool servo_move_speed(uint8_t servo, uint16_t target, uint16_t speed){
 	return true;
 }
 
+bool activate_no_block_com(){
+	tty.c_cc[VTIME] = 10;    // return as soon as 100ms has passed
+    tty.c_cc[VMIN] = 0;
+	if (tcsetattr(serial_port, TCSANOW, &tty) != 0) {
+        printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
+    }
+	return 1;
+}
+
+bool get_servo_position(uint8_t id){
+	bool pos = get_position(id);
+	uint8_t no_answer_cnt=0;
+	while (!pos){
+		tcflush(serial_port, TCIOFLUSH);
+		usleep(100000);
+		pos = get_position(id);
+		no_answer_cnt+=1;
+		if (no_answer_cnt>10){
+			printf("Servo doesn't answer\n");
+			printf("end of experience\n");
+			exit(1);//alert OBC instead of exit
+		}
+		delay_after_request+=50000;
+	}
+}
+
 int main(){
     init_serial();
 	usleep(2000000);  // 2 seconds delay to allow Arduino to reset
@@ -285,8 +329,9 @@ int main(){
 			exit(1);//alert OBC instead of exit
 		}
 	}
-	get_position(0);
-	get_position(1);
+	activate_no_block_com();
+	get_servo_position(0);
+	get_servo_position(1);
 	//usleep(1000000);
 	//servo_move_speed(1,78,20);
 	servo_move(0,90);

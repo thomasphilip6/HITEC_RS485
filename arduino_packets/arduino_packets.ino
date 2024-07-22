@@ -15,6 +15,7 @@ byte data_h1 = 0x30;
 byte checksum1 = 0x3C;
 
 int intended_defect=0;
+int intended_defect2=0;
 
 void setup() {
 	Serial.begin(9600);	
@@ -56,18 +57,21 @@ void loop(){
 		Serial.write(checksum);
 	}
 	else if(buffer[1]==0x02){
-		intended_defect+=1;
-		Serial.write(header1);
-        Serial.write(id1);
-        Serial.write(address1);
-        Serial.write(length1);
-        Serial.write(data_l1);
-        Serial.write(data_h1);
-		if(intended_defect<4){
-			Serial.write(0xFF);
-		}
-		else {
-        	Serial.write(checksum1);
+		intended_defect2+=1;
+		if(intended_defect2>=4){
+			intended_defect+=1;
+			Serial.write(header1);
+        	Serial.write(id1);
+        	Serial.write(address1);
+        	Serial.write(length1);
+        	Serial.write(data_l1);
+        	Serial.write(data_h1);
+			if(intended_defect<4){
+				Serial.write(0xFF);
+			}
+			else {
+        		Serial.write(checksum1);
+			}		
 		}
 	}
 	else {}
