@@ -14,9 +14,10 @@
 #include <termios.h> // Contains POSIX terminal control definitions
 #include <unistd.h> // write(), read(), close()
 
+#include <wiringPi.h>// used to control direction in smd uart/rs485 converter
+//update the use of that library to the technologies used on astreos
+
 extern char port_name[100];
-//const char port_name[100] = "/dev/ttyAMA0"; 
-//choose the port
 extern int serial_port;
 extern uint8_t pin_RS485_control;
 extern uint8_t response_hitec[7];

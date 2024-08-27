@@ -1,7 +1,4 @@
-//uart_comms.c
 #include "uart_comms.h"
-#include <wiringPi.h>// used to control direction in smd uart/rs485 converter
-//update the use of that library to the technologies used on astreos
 uint8_t pin_RS485_control=16;//corresponds to actual pin GPIO15
 int serial_port;
 uint8_t response_hitec[7];
@@ -43,8 +40,8 @@ void init_serial(){
     	tty.c_oflag &= ~OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
     	tty.c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
 
-    	tty.c_cc[VTIME] = 10;    // return as soon as 7 Byte is read or 100ms has passed
-    	tty.c_cc[VMIN] = 7;
+    	tty.c_cc[VTIME] = 10;    // return as soon as 100ms has passed
+    	tty.c_cc[VMIN] = 0;
 
     	if (tcsetattr(serial_port, TCSANOW, &tty) != 0) {
     	    printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
@@ -56,9 +53,9 @@ void init_serial(){
 
 //return as soon 7 bytes is read is convenient when broadcasting or setup but is dangerous in flight 
 //as it can block the execution of the program
-bool activate_no_block_com(){
-	tty.c_cc[VTIME] = 10;    // return as soon as 100ms has passed
-    tty.c_cc[VMIN] = 0;
+bool activate_block_com(){
+	tty.c_cc[VTIME] = 0;    //return as soon as 7 bytes are read
+    tty.c_cc[VMIN] = 7;
 	if (tcsetattr(serial_port, TCSANOW, &tty) != 0) {
         printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
     }
@@ -96,7 +93,7 @@ bool get_read_bus_checksum() {
 	printf("checksum computed is : ");
 	printf(" 0x%02X", (unsigned char)checksum);
 	printf("\n");
-	if (checksum==response_hitec[6]){
+	if (checksum==response_hitec[6] && response_hitec[0]!=0x00){
 		flag=1;
 	}
 	else{}

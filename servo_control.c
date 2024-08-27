@@ -1,20 +1,4 @@
-//servo_control.c
-// C library headers
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-
-// Linux headers
-#include <fcntl.h> // Contains file controls like O_RDWR
-#include <errno.h> // Error integer and strerror() function
-#include <termios.h> // Contains POSIX terminal control definitions
-#include <unistd.h> // write(), read(), close()
-
-#include <wiringPi.h>// used to control direction in smd uart/rs485 converter
-//update the use of that library to the technologies used on astreos
-#include "uart_comms.h"
+#include "uart_comms.h" //used to link some common data
 
 #define SERVO_COUNT 4
 
@@ -152,26 +136,6 @@ bool get_position(uint8_t id){
 	return position_acquired;
 }
 
-//makes sure that get_position returns something, if it doens't, it will increase delay after request
-//if still not responds, it should alert OBC
-bool get_servo_position(uint8_t id){
-	bool pos = get_position(id);
-	uint8_t no_answer_cnt=0;
-	while (!pos){
-		tcflush(serial_port, TCIOFLUSH);
-		usleep(100000);
-		pos = get_position(id);
-		no_answer_cnt+=1;
-		if (no_answer_cnt>10){
-			printf("Servo doesn't answer\n");
-			printf("end of experience\n");
-			exit(1);//alert OBC instead of exit
-		}
-		delay_after_request+=50000;
-	}
-    return 1;
-}
-
 bool servo_move(uint8_t servo, int16_t value){
 	float slope=(float)(5600-400)/(reg_position_max-reg_position_min);
 	float b_coeff=(float)5600-slope*reg_position_max;
@@ -184,8 +148,6 @@ bool servo_move(uint8_t servo, int16_t value){
 	write_hitec[3]=0x02;//length
 	write_hitec[4]=data_low;
 	write_hitec[5]=data_high;
-	//write_hitec[4]=0xB8;
-	//write_hitec[5]=0x0B;
 	write_hitec[6]=get_wm_checksum();
 	for (int i = 0; i < 7; i++) {
     	printf("0x%02X ", write_hitec[i]);
@@ -208,11 +170,14 @@ int main(){
     init_serial();
     usleep(2000000);
     tcflush(serial_port, TCIOFLUSH);
-    activate_no_block_com();
     usleep(2000000);
-    servo_move(0,20);
-    usleep(200000);
-    get_servo_position(1);
+    get_position(0);
+    usleep(2000000);
+    get_position(1);
+    usleep(2000000);
+    get_position(2);
+    usleep(2000000);
+    get_position(3);
     usleep(2000000);
    return 1;
 }
