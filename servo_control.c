@@ -17,12 +17,10 @@ bool writing_failure(uint8_t bytes_number){
 		if (bytes_number==5){
             digitalWrite(pin_RS485_control, HIGH);
 			bytes_written=write(serial_port, request_hitec, sizeof(request_hitec));	
-            digitalWrite(pin_RS485_control, LOW);
 		}
 		else if (bytes_number==7){
             digitalWrite(pin_RS485_control, HIGH);
 			bytes_written=write(serial_port, write_hitec, sizeof(write_hitec));	
-            digitalWrite(pin_RS485_control, LOW);
 		}
 		else {
 			printf("sending message damaged\n");//memory leak
@@ -59,10 +57,9 @@ void call_servos(uint8_t id_servo, uint8_t register_address){
     printf("\n");
     digitalWrite(pin_RS485_control, HIGH);
     ssize_t bytes_written=write(serial_port, request_hitec, sizeof(request_hitec));
-    digitalWrite(pin_RS485_control, LOW);
     if (bytes_written==5){
 	    printf("5 bytes written\n");
-	send_flag=1;
+		send_flag=1;
     }  
     else {
 	    writing_failure(5);
@@ -127,7 +124,6 @@ bool write_data(uint8_t servo_id, uint8_t register_address, uint8_t data_high, u
   	printf("\n");
     digitalWrite(pin_RS485_control, HIGH);
 	ssize_t bytes_written=write(serial_port, write_hitec, sizeof(write_hitec));
-    digitalWrite(pin_RS485_control, HIGH);
   	if (bytes_written==7){
 		printf("7 bytes written\n");
 		send_flag=1;
@@ -195,6 +191,12 @@ int main(){
     usleep(2000000);
     tcflush(serial_port, TCIOFLUSH);
 	usleep(200000);
+	//read_data(0,REG_POSITION);
+	//read_data(1,REG_POSITION);
+	//read_data(2,REG_POSITION);
+	//read_data(3,REG_POSITION);
+	
+	
 	while(1){
 		change_speed(0,10);
 		change_speed(1,10);
@@ -223,6 +225,6 @@ int main(){
 		usleep(700000);
 		get_angles_of_attack();
 	}
-    return 1;
+	return 1;
 }
 

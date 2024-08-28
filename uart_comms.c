@@ -3,7 +3,7 @@
 uint8_t pin_RS485_control=16;//corresponds to actual pin GPIO15
 int serial_port;
 uint8_t response_hitec[7];
-char port_name[100]="/dev/ttyUSB0";
+char port_name[100]="/dev/ttyAMA3";
 
 void error_exit(const char* message) {
     perror(message);

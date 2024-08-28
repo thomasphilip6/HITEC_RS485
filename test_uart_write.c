@@ -62,6 +62,7 @@ int main() {
     init_serial();
     usleep(2000000);
     while(1){
+		digitalWrite(16, HIGH);
         for (int i = 0; i < 5; i++) {
         printf("0x%02X ", request_hitec[i]);
         }
@@ -69,6 +70,8 @@ int main() {
         ssize_t bytes_written=write(serial_port, request_hitec, sizeof(request_hitec));
     if (bytes_written==5){
 	    printf("5 bytes written\n");
+		usleep(1000000);
+		digitalWrite(16, LOW);
     }     
     usleep(1000000);
     }

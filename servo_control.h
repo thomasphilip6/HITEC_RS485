@@ -40,7 +40,7 @@ int16_t angle_of_attack[SERVO_COUNT];
 int16_t current_positions[SERVO_COUNT];
 int16_t previous_positions[SERVO_COUNT];
 int16_t target_positions[SERVO_COUNT];
-unsigned long delay_after_request=100000;
+unsigned long delay_after_request=10000;//10000 for uart/rs485 but 100000 for usb/rs485
 
 //functions
 uint8_t get_wm_checksum();
