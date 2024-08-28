@@ -33,8 +33,10 @@ uint8_t request_hitec[5];
 uint8_t write_hitec[7];
 uint8_t broadcast_id=0x00;
 uint8_t servo_id[SERVO_COUNT]={0x04,0x01,0x02,0x03};
-uint16_t b_coeff_encoders[SERVO_COUNT]={7987,7816,8192,8192};//all encoders don't return the same when at 0°, see protocol datasheet 
+uint16_t b_coeff_encoders[SERVO_COUNT]={7987,7816,8268,8192};//all encoders don't return the same when at 0°, see protocol datasheet 
 int16_t straight_JV_value[SERVO_COUNT]={20,6,0,0};//values at which the JV are straight
+int8_t JV_direction[SERVO_COUNT]={-1,-1,1,1};//the servo motors don't all turn in the same direction
+int16_t angle_of_attack[SERVO_COUNT];
 int16_t current_positions[SERVO_COUNT];
 int16_t previous_positions[SERVO_COUNT];
 int16_t target_positions[SERVO_COUNT];

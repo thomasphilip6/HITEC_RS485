@@ -172,10 +172,46 @@ int main(){
     init_serial();
     usleep(2000000);
     tcflush(serial_port, TCIOFLUSH);
-	read_data(0,REG_VELOCITY_MAX);
-	read_data(1,REG_VELOCITY_MAX);
-	read_data(2,REG_VELOCITY_MAX);
-	read_data(3,REG_VELOCITY_MAX);
+	usleep(200000);
+	//write_data(2,REG_POSITION_NEW,0x0B,0xB8);
+	usleep(200000);
+	//read_data(0,REG_VELOCITY_MAX);
+	//read_data(1,REG_VELOCITY_MAX);
+	//read_data(2,REG_VELOCITY_MAX);
+	//read_data(3,REG_VELOCITY_MAX);
+	for (int i = 0; i < SERVO_COUNT; i++) {
+    	servo_move(i,straight_JV_value[i]);
+    	usleep(200000);
+		if (get_position(i)){
+			usleep(100000);
+			angle_of_attack[i]=current_positions[i]-straight_JV_value[i];
+			usleep(200000);
+		}
+    }
+	for (int i=0; i < SERVO_COUNT; i++){
+		printf("id : ");
+		printf("0x%02X ", servo_id[i]);
+		printf("\n");
+		printf("Angle of attack is %i\n", angle_of_attack[i]);
+	}
+
+	for (int i = 0; i < SERVO_COUNT; i++) {
+		int8_t angle = 20*JV_direction[i];
+    	servo_move(i,current_positions[i]-angle);
+    	usleep(200000);
+		if (get_position(i)){
+			usleep(100000);
+			angle_of_attack[i]=(current_positions[i]-straight_JV_value[i])*JV_direction[i];
+			usleep(200000);
+		}
+    }
+	for (int i=0; i < SERVO_COUNT; i++){
+		printf("id : ");
+		printf("0x%02X ", servo_id[i]);
+		printf("\n");
+		printf("Angle of attack is %i\n", angle_of_attack[i]);
+	}
+
 	/*
 	servo_move(0,20);
 	usleep(200000);
