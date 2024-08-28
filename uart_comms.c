@@ -52,17 +52,6 @@ void init_serial(){
 
 }
 
-//return as soon 7 bytes is read is convenient when broadcasting or setup but is dangerous in flight 
-//as it can block the execution of the program
-bool activate_block_com(){
-	tty.c_cc[VTIME] = 0;    //return as soon as 7 bytes are read
-    tty.c_cc[VMIN] = 7;
-	if (tcsetattr(serial_port, TCSANOW, &tty) != 0) {
-        printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
-    }
-	return 1;
-}
-
 bool restart_serial(){
 	tcflush(serial_port, TCIOFLUSH);
 	close(serial_port);
@@ -94,7 +83,7 @@ bool get_read_bus_checksum() {
 	printf("checksum computed is : ");
 	printf(" 0x%02X", (unsigned char)checksum);
 	printf("\n");
-	if (checksum==response_hitec[6] && response_hitec[0]!=0x00){
+	if (checksum==response_hitec[6] && response_hitec[0]==0x69){
 		flag=1;
 	}
 	else{}

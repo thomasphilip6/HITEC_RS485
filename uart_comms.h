@@ -23,7 +23,6 @@ extern uint8_t pin_RS485_control;
 extern uint8_t response_hitec[7];
 
 void init_serial();
-bool activate_no_block_com();
 bool restart_serial();
 bool read_bus();
 bool get_read_bus_checksum();

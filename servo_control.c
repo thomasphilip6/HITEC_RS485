@@ -148,11 +148,35 @@ bool servo_move(uint8_t servo, int16_t value){
 	return true;	
 }
 
+bool read_data(uint8_t id, uint8_t register_address){
+	tcflush(serial_port, TCIOFLUSH);
+	usleep(delay_after_request);
+	call_servos(servo_id[id],register_address);
+	usleep(delay_after_request);
+	read_bus();
+	bool checksum_match=get_read_bus_checksum();
+	if (checksum_match){
+		printf("id : ");
+		printf("0x%02X ", response_hitec[1]);
+		uint16_t value=(response_hitec[5] << 8) | response_hitec[4];
+		printf("\n");
+		printf("Data is %i\n", value);
+		return 1;
+	}
+	else {
+		return 0;	
+	}
+}
+
 int main(){
     init_serial();
     usleep(2000000);
     tcflush(serial_port, TCIOFLUSH);
-    usleep(2000000);
+	read_data(0,REG_VELOCITY_MAX);
+	read_data(1,REG_VELOCITY_MAX);
+	read_data(2,REG_VELOCITY_MAX);
+	read_data(3,REG_VELOCITY_MAX);
+	/*
 	servo_move(0,20);
 	usleep(200000);
     get_position(0);
@@ -163,6 +187,7 @@ int main(){
     usleep(200000);
     get_position(3);
     usleep(200000);
-   return 1;
+	*/
+    return 1;
 }
 

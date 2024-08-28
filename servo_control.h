@@ -40,14 +40,11 @@ int16_t previous_positions[SERVO_COUNT];
 int16_t target_positions[SERVO_COUNT];
 unsigned long delay_after_request=100000;
 
-const float max_delay=20000;
-const float min_delay=0;
-const float a_coeff=(max_delay-min_delay)/(100-0);
-
 //functions
 uint8_t get_wm_checksum();
 bool writing_failure(uint8_t bytes_number);
 void call_servos(uint8_t id_servo, uint8_t register_address);
+bool read_data(uint8_t id, uint8_t register_address);
 bool get_position(uint8_t id);
 bool write_data(uint8_t servo_id, uint8_t register_address, uint8_t data_high, uint8_t data_low);
 bool servo_move(uint8_t servo, int16_t value);
