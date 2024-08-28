@@ -50,6 +50,8 @@ bool read_data(uint8_t id, uint8_t register_address);
 bool get_position(uint8_t id);
 bool write_data(uint8_t servo_id, uint8_t register_address, uint8_t data_high, uint8_t data_low);
 bool servo_move(uint8_t servo, int16_t value);
+bool change_speed(uint8_t id, uint8_t value);//value can be between 0 and 10
+bool get_angles_of_attack();
 int main();
 
 #endif

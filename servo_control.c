@@ -168,62 +168,61 @@ bool read_data(uint8_t id, uint8_t register_address){
 	}
 }
 
-int main(){
-    init_serial();
-    usleep(2000000);
-    tcflush(serial_port, TCIOFLUSH);
-	usleep(200000);
-	//write_data(2,REG_POSITION_NEW,0x0B,0xB8);
-	usleep(200000);
-	//read_data(0,REG_VELOCITY_MAX);
-	//read_data(1,REG_VELOCITY_MAX);
-	//read_data(2,REG_VELOCITY_MAX);
-	//read_data(3,REG_VELOCITY_MAX);
-	for (int i = 0; i < SERVO_COUNT; i++) {
-    	servo_move(i,straight_JV_value[i]);
-    	usleep(200000);
-		if (get_position(i)){
-			usleep(100000);
-			angle_of_attack[i]=current_positions[i]-straight_JV_value[i];
-			usleep(200000);
-		}
-    }
-	for (int i=0; i < SERVO_COUNT; i++){
-		printf("id : ");
-		printf("0x%02X ", servo_id[i]);
-		printf("\n");
-		printf("Angle of attack is %i\n", angle_of_attack[i]);
-	}
+bool change_speed(uint8_t id, uint8_t value){
+	write_data(servo_id[id],REG_VELOCITY_MAX,0x00, value);
+	usleep(20000);
+	return 1;
+}
 
-	for (int i = 0; i < SERVO_COUNT; i++) {
-		int8_t angle = 20*JV_direction[i];
-    	servo_move(i,current_positions[i]-angle);
-    	usleep(200000);
+//updates angle_of_attack[]
+bool get_angles_of_attack(){
+	for (int i=0; i < SERVO_COUNT; i++){
 		if (get_position(i)){
 			usleep(100000);
 			angle_of_attack[i]=(current_positions[i]-straight_JV_value[i])*JV_direction[i];
 			usleep(200000);
 		}
-    }
-	for (int i=0; i < SERVO_COUNT; i++){
 		printf("id : ");
 		printf("0x%02X ", servo_id[i]);
 		printf("\n");
 		printf("Angle of attack is %i\n", angle_of_attack[i]);
 	}
+	return 1;
+}
 
-	/*
-	servo_move(0,20);
+int main(){
+    init_serial();
+    usleep(2000000);
+    tcflush(serial_port, TCIOFLUSH);
 	usleep(200000);
-    get_position(0);
-    usleep(200000);
-    get_position(1);
-    usleep(200000);
-    get_position(2);
-    usleep(200000);
-    get_position(3);
-    usleep(200000);
-	*/
+	while(1){
+		change_speed(0,10);
+		change_speed(1,10);
+		change_speed(2,10);
+		change_speed(3,10);
+
+		for (int i = 0; i < SERVO_COUNT; i++) {
+    		servo_move(i,straight_JV_value[i]); 	
+    	}
+		usleep(200000);
+
+		get_angles_of_attack();
+
+		for (int i = 0; i < SERVO_COUNT; i++) {
+			int8_t angle = 20*JV_direction[i];
+    		servo_move(i,current_positions[i]-angle);
+    	}
+		usleep(200000);
+		get_angles_of_attack();
+		change_speed(1,3);
+		change_speed(3,3);
+		servo_move(0,straight_JV_value[0]);
+		servo_move(2,straight_JV_value[2]);
+		servo_move(1,straight_JV_value[1]-20);
+		servo_move(3,straight_JV_value[3]+20);
+		usleep(700000);
+		get_angles_of_attack();
+	}
     return 1;
 }
 
