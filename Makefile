@@ -10,7 +10,7 @@ test_control_servo: uart_comms.o servo_control.o
 uart_comms.o: uart_comms.c uart_comms.h
 	$(CC) $(CFLAGS) -c uart_comms.c -o uart_comms.o
 
-servo_control.o: servo_control.c uart_comms.h
+servo_control.o: servo_control.c uart_comms.h servo_control.h
 	$(CC) $(CFLAGS) -c servo_control.c -o servo_control.o
 
 clean:

@@ -1,4 +1,5 @@
 #include "uart_comms.h"
+
 uint8_t pin_RS485_control=16;//corresponds to actual pin GPIO15
 int serial_port;
 uint8_t response_hitec[7];
