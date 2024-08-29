@@ -77,7 +77,7 @@ bool change_speed(uint8_t id, uint8_t value){
 }
 ```
 
-## Dealing with failures
+## 👎 Dealing with failures
 Here is how differents failures are detected and dealt with
 ![](failure_modes.png)
 

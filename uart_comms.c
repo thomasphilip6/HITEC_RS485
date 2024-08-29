@@ -41,7 +41,7 @@ void init_serial(){
     	tty.c_oflag &= ~OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
     	tty.c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
 
-    	tty.c_cc[VTIME] = 10;    // return as soon as 100ms has passed
+    	tty.c_cc[VTIME] = 10;    // return as soon as 10ds has passed
     	tty.c_cc[VMIN] = 0;
 
     	if (tcsetattr(serial_port, TCSANOW, &tty) != 0) {
